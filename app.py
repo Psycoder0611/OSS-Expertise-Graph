@@ -293,9 +293,10 @@ with st.sidebar:
     st.divider()
 
     st.info(
-        "Current expertise scores are transparent and rule-based, "
-        "using commit frequency and total code changes."
-    )
+    "Expertise scores are transparent and rule-based, using commit "
+    "frequency, total code changes, and recent activity. Results reflect "
+    "the commit history currently ingested into the graph."
+)
 
 
 # ---------------------------------------------------------
@@ -425,7 +426,7 @@ with summary_col1:
 
 with summary_col2:
     st.metric(
-        "⚠️ At-risk files",
+        "⚠️ Knowledge-risk files",
         len(risks),
     )
 
@@ -442,7 +443,7 @@ with summary_col3:
 
 st.markdown(
     f"""
-    Repository knowledge-risk status:
+    <strong>Knowledge Risk:</strong>
     <span class="{risk_class}">
         {risk_level} · {risk_percentage}%
     </span>
@@ -462,7 +463,7 @@ st.divider()
 expert_tab, risk_tab, methodology_tab = st.tabs(
     [
         "🎯 File Experts",
-        "⚠️ Bus-Factor Risks",
+        "⚠️ Knowledge Risk",
         "🧠 Methodology",
     ]
 )
@@ -614,7 +615,7 @@ with expert_tab:
 
 
 # ---------------------------------------------------------
-# BUS-FACTOR TAB
+# KNOWLEDGE RISK TAB
 # ---------------------------------------------------------
 
 with risk_tab:
@@ -625,14 +626,14 @@ with risk_tab:
         unsafe_allow_html=True,
     )
 
-    st.subheader("Knowledge-concentration risks")
+    st.subheader("Knowledge Risk Analysis")
 
     st.markdown(
         """
         <div class="section-description">
-            A file is considered at risk when only one historical
-            contributor has modified it. These files may become
-            difficult to maintain if that contributor is unavailable.
+            Project knowledge is considered concentrated when only one historical
+            contributor has modified a file. These files may become difficult
+            to maintain if that contributor is unavailable.
         </div>
         """,
         unsafe_allow_html=True,
@@ -648,7 +649,7 @@ with risk_tab:
 
     with risk_col2:
         st.metric(
-            "Single-owner files",
+            "Knowledge-risk files",
             len(risks),
         )
 
@@ -662,7 +663,7 @@ with risk_tab:
 
     if not risks:
         st.success(
-            "No single-contributor files were detected."
+            "No files with concentrated contributor knowledge were detected."
         )
 
     else:
@@ -761,5 +762,6 @@ with methodology_tab:
 st.divider()
 
 st.caption(
-    "Built with Python, Streamlit, GitHub REST API, and Neo4j Aura."
+    "Built with Python · Streamlit · GitHub REST API · Neo4j Aura | "
+    "Analyzing contributor expertise and knowledge risk across repositories."
 )

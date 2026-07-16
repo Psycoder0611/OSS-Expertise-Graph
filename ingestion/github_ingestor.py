@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +55,30 @@ def extract_contributor(commit: dict[str, Any]) -> dict[str, Any]:
         "avatar_url": None,
     }
 
+def commit_already_ingested(
+    driver,
+    repository_full_name: str,
+    sha: str,
+) -> bool:
+    """
+    Check whether a commit has already been imported into Neo4j.
+
+    The repository name is included because the same graph can contain
+    multiple GitHub repositories.
+    """
+
+    commit_key = f"{repository_full_name}:{sha}"
+
+    records, _, _ = driver.execute_query(
+        """
+        MATCH (c:Commit {key: $commit_key})
+        RETURN count(c) > 0 AS already_exists
+        """,
+        commit_key=commit_key,
+        database_="neo4j",
+    )
+
+    return bool(records[0]["already_exists"])
 
 def ingest_repository(
     owner: str,
@@ -110,11 +135,58 @@ def ingest_repository(
             commit_date = commit["commit"]["author"]["date"]
             full_sha = commit["sha"]
 
+            commit_key = f"{repository_full_name}:{full_sha}"
+
+            if commit_already_ingested(
+                driver=driver,
+                repository_full_name=repository_full_name,
+                sha=full_sha,
+            ):
+                print(
+                    f"Skipping previously imported commit: "
+                    f"{full_sha[:7]}"
+                )
+                continue
             details = get_commit_details(
                 owner=owner,
                 repository=repository,
                 sha=full_sha,
             )
+
+            driver.execute_query(
+                """
+                MATCH (r:Repository {full_name: $repository_full_name})
+
+                MERGE (p:Person {id: $person_id})
+                SET
+                    p.login = $login,
+                    p.name = $person_name,
+                    p.avatar_url = $avatar_url
+
+                MERGE (c:Commit {key: $commit_key})
+                SET
+                    c.sha = $sha,
+                    c.message = $message,
+                    c.committed_at = datetime($commit_date),
+                    c.url = $commit_url
+
+                MERGE (p)-[:AUTHORED]->(c)
+                MERGE (c)-[:BELONGS_TO]->(r)
+                MERGE (p)-[:CONTRIBUTES_TO]->(r)
+                """,
+                repository_full_name=repository_full_name,
+                person_id=contributor["id"],
+                login=contributor["login"],
+                person_name=contributor["name"],
+                avatar_url=contributor["avatar_url"],
+                commit_key=commit_key,
+                sha=full_sha,
+                message=commit["commit"].get("message"),
+                commit_date=commit_date,
+                commit_url=commit.get("html_url"),
+                database_="neo4j",
+            )
+
 
             changed_files = details.get("files", [])
 
@@ -141,6 +213,15 @@ def ingest_repository(
                     MERGE (p)-[:CONTRIBUTES_TO]->(r)
                     MERGE (f)-[:BELONGS_TO]->(r)
 
+                    MATCH (c:Commit {key: $commit_key})
+
+                    MERGE (c)-[ch:CHANGED]->(f)
+                    SET
+                        ch.status = $status,
+                        ch.additions = $additions,
+                        ch.deletions = $deletions,
+                        ch.changes = $total_changes
+                    
                     MERGE (p)-[m:MODIFIED]->(f)
                     ON CREATE SET
                         m.count = 1,
@@ -168,6 +249,9 @@ def ingest_repository(
                     status=file_data.get("status"),
                     commit_date=commit_date,
                     total_changes=file_data.get("changes", 0),
+                    commit_key=commit_key,
+                    additions=file_data.get("additions", 0),
+                    deletions=file_data.get("deletions", 0),
                     database_="neo4j",
                 )
 
@@ -184,9 +268,40 @@ def ingest_repository(
         driver.close()
 
 
+def parse_arguments() -> argparse.Namespace:
+    """Read repository settings from the command line."""
+
+    parser = argparse.ArgumentParser(
+        description="Ingest GitHub repository activity into Neo4j."
+    )
+
+    parser.add_argument(
+        "--owner",
+        required=True,
+        help="GitHub username or organization that owns the repository.",
+    )
+
+    parser.add_argument(
+        "--repository",
+        required=True,
+        help="GitHub repository name.",
+    )
+
+    parser.add_argument(
+        "--commit-limit",
+        type=int,
+        default=30,
+        help="Number of recent commits to ingest.",
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    arguments = parse_arguments()
+
     ingest_repository(
-        owner="Psycoder0611",
-        repository="OSS-Expertise-Graph",
-        commit_limit=20,
+        owner=arguments.owner,
+        repository=arguments.repository,
+        commit_limit=arguments.commit_limit,
     )

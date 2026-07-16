@@ -28,6 +28,11 @@ def create_constraints() -> None:
         FOR (f:File)
         REQUIRE f.key IS UNIQUE
         """,
+        """
+        CREATE CONSTRAINT commit_key_unique IF NOT EXISTS
+        FOR (c:Commit)
+        REQUIRE c.key IS UNIQUE
+        """,
     ]
 
     try:
@@ -197,23 +202,4 @@ def get_bus_factor_risks(
 
 
 if __name__ == "__main__":
-    print("\nRepositories")
-    print(get_repositories())
-
-    repository_name = "Psycoder0611/OSS-Expertise-Graph"
-
-    print("\nFiles")
-    files = get_repository_files(repository_name)
-    print(files)
-
-    if files:
-        print("\nExperts for first file")
-        print(
-            search_experts(
-                repository_full_name=repository_name,
-                file_path=files[0],
-            )
-        )
-
-    print("\nBus-factor risks")
-    print(get_bus_factor_risks(repository_name))
+    create_constraints()
