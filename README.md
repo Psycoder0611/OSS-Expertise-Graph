@@ -1,4 +1,4 @@
-# 🚀 Open-Source Contributor Expertise Graph
+# Open-Source Contributor Expertise Graph
 
 Finding the right contributor in a large open-source project can be difficult. This project builds a Neo4j knowledge graph from GitHub repositories to identify file experts, surface knowledge concentration risks, and visualize contributor ownership through an interactive Streamlit dashboard.
 
